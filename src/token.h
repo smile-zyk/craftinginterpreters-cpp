@@ -1,7 +1,7 @@
 #pragma once
-#include <cstddef>
 #include <string>
-#include <variant>
+
+#include "object.h"
 
 namespace lox
 {
@@ -60,12 +60,9 @@ class Token
         kEOF // EOF
     };
 
-    using Literal = std::variant<std::monostate, double, std::string>;
-    static Literal LiteralNull();
-    static std::string LiteralToString(const Literal &literal);
     static std::string TypeToString(Type type);
 
-    Token(Type type, const std::string &lexeme, Literal literal, size_t line)
+    Token(Type type, const std::string &lexeme, Object literal, size_t line)
         : type_(type), lexeme_(lexeme), literal_(literal), line_(line)
     {
     }
@@ -82,7 +79,7 @@ class Token
         return lexeme_;
     }
 
-    Literal literal() const
+    Object literal() const
     {
         return literal_;
     }
@@ -95,7 +92,7 @@ class Token
   private:
     Type type_;
     std::string lexeme_;
-    Literal literal_;
+    Object literal_;
     size_t line_;
 };
 

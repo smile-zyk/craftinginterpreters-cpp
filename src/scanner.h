@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "token.h"
+#include "object.h"
 
 namespace lox
 {
@@ -33,7 +34,7 @@ class Scanner
     void Identifier();
 
     void AddToken(Token::Type type);
-    void AddToken(Token::Type type, Token::Literal literal);
+    void AddToken(Token::Type type, Object literal);
   private:
     static std::unordered_map<std::string, Token::Type> keywords_;
     std::string source_;

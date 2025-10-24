@@ -1,6 +1,7 @@
 
 #include "scanner.h"
 #include "lox.h"
+#include "object.h"
 #include "token.h"
 #include <string>
 
@@ -24,7 +25,7 @@ const std::vector<Token> &Scanner::ScanTokens()
         ScanToken();
     }
 
-    tokens_.push_back(Token(Token::Type::kEOF, "", Token::LiteralNull(), line_));
+    tokens_.push_back(Token(Token::Type::kEOF, "", ObjectNull(), line_));
 
     return tokens_;
 }
@@ -230,10 +231,10 @@ void Scanner::Identifier()
 
 void Scanner::AddToken(Token::Type type)
 {
-    AddToken(type, Token::LiteralNull());
+    AddToken(type, ObjectNull());
 }
 
-void Scanner::AddToken(Token::Type type, Token::Literal literal)
+void Scanner::AddToken(Token::Type type, Object literal)
 {
     std::string text = source_.substr(start_, current_ - start_);
     tokens_.push_back(Token(type, text, literal, line_));

@@ -11,6 +11,8 @@ add_executable(${PROJECT_NAME}
 src/main.cc
 src/lox.h
 src/lox.cc
+src/object.h
+src/object.cc
 src/token.h
 src/token.cc
 src/scanner.h
