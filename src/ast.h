@@ -16,10 +16,10 @@ class Unary;
 class ExprVisitor
 {
   public:
-    virtual Object Visit(Binary *binary) = 0;
-    virtual Object Visit(Grouping *grouping) = 0;
-    virtual Object Visit(Literal *literal) = 0;
-    virtual Object Visit(Unary *unary) = 0;
+    virtual Object Visit(Binary *expr) = 0;
+    virtual Object Visit(Grouping *expr) = 0;
+    virtual Object Visit(Literal *expr) = 0;
+    virtual Object Visit(Unary *expr) = 0;
 };
 
 class Expr
@@ -41,15 +41,15 @@ class Binary : public Expr
         return visitor->Visit(this);
     }
 
-    const Expr *left()
+    Expr *left()
     {
         return left_.get();
     }
-    const Token oper()
+    const Token& oper()
     {
         return operator_;
     }
-    const Expr *right()
+    Expr *right()
     {
         return right_.get();
     }
@@ -70,7 +70,7 @@ class Grouping : public Expr
         return visitor->Visit(this);
     }
 
-    const Expr *expression()
+    Expr *expression()
     {
         return expression_.get();
     }
@@ -112,7 +112,7 @@ class Unary : public Expr
     {
         return operator_;
     }
-    const Expr *right()
+    Expr *right()
     {
         return right_.get();
     }

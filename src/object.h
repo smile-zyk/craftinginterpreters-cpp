@@ -5,9 +5,13 @@
 
 namespace lox
 {
-using Object = std::variant<std::monostate, double, bool, std::string>;
+using Object = std::variant<std::nullptr_t, double, bool, std::string>;
 
 std::string ObjectToString(const Object& obj);
 
-Object ObjectNull();
+template <typename T>
+bool IsObjectInstance(const Object& obj)
+{
+    return std::holds_alternative<T>(obj);
+}
 }

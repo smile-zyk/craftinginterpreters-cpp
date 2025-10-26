@@ -4,23 +4,38 @@ using namespace lox;
 
 std::string AstPrinter::Print(Expr *expr) 
 {
-    Object res = expr->Accept(this);
-    if(std::holds_alternative<std::string>(res))
-    {
-        return std::get<std::string>(res);
-    }
-    else {
-        return "";
-    }
+    return ObjectToString(expr->Accept(this));
 }
 
-Object AstPrinter::Visit(Binary *binary) 
+Object AstPrinter::Visit(Binary *expr) 
 {
-    
+    return Parenthesize(expr->oper().lexeme(), {expr->left(), expr->right()});
 }
 
-Object AstPrinter::Visit(Grouping *binary) {}
+Object AstPrinter::Visit(Grouping *expr) 
+{
+    return Parenthesize("group", {expr->expression()});
+}
 
-Object AstPrinter::Visit(Literal *binary) {}
+Object AstPrinter::Visit(Literal *expr) 
+{
+    return ObjectToString(expr->value());
+}
 
-Object AstPrinter::Visit(Unary *binary) {}
+Object AstPrinter::Visit(Unary *expr) 
+{
+    return Parenthesize(expr->oper().lexeme(), {expr->right()});
+}
+
+std::string AstPrinter::Parenthesize(const std::string& name, std::initializer_list<Expr*> exprs)
+{
+    std::string res;
+    res = "(" + name;
+    for(Expr* expr : exprs)
+    {
+        res += " ";
+        res += ObjectToString(expr->Accept(this));
+    }
+    res += ")";
+    return res;
+}

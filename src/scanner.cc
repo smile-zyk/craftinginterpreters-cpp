@@ -25,7 +25,7 @@ const std::vector<Token> &Scanner::ScanTokens()
         ScanToken();
     }
 
-    tokens_.push_back(Token(Token::Type::kEOF, "", ObjectNull(), line_));
+    tokens_.push_back(Token(Token::Type::kEOF, "", nullptr, line_));
 
     return tokens_;
 }
@@ -231,7 +231,7 @@ void Scanner::Identifier()
 
 void Scanner::AddToken(Token::Type type)
 {
-    AddToken(type, ObjectNull());
+    AddToken(type, nullptr);
 }
 
 void Scanner::AddToken(Token::Type type, Object literal)

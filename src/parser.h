@@ -5,7 +5,7 @@
 
 #include "token.h"
 #include "ast.h"
-
+#include "error.h"
 
 namespace lox
 {
@@ -14,6 +14,8 @@ class Parser
 public:
     Parser(const std::vector<Token>& tokens): tokens_(tokens){}
 
+    std::unique_ptr<Expr> Parse();
+    
 private:
     std::unique_ptr<Expr> expression();
     std::unique_ptr<Expr> equality();
@@ -32,7 +34,9 @@ private:
     bool IsAtEnd();
     Token Peek();
     Token Previous();
-    
+    Token Consume(Token::Type type, const std::string& message);
+    ParseError Error(Token token, const std::string& message);
+
 private:
     size_t current_ = 0;
     const std::vector<Token>& tokens_;

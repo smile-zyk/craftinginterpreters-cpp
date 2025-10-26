@@ -1,8 +1,9 @@
 #include "parser.h"
 #include "ast.h"
+#include "lox.h"
 #include "token.h"
 #include <memory>
-#include <utility>
+
 
 using namespace lox;
 
@@ -17,6 +18,18 @@ unary          → ( "!" | "-" ) unary
 primary        → NUMBER | STRING | "true" | "false" | "nil"
                | "(" expression ")" ;
 */
+
+std::unique_ptr<Expr> Parser::Parse()
+{
+    try
+    {
+        return expression();
+    }
+    catch (const ParseError)
+    {
+        return nullptr;
+    }
+}
 
 // expression     → equality ;
 std::unique_ptr<Expr> Parser::expression()
@@ -47,8 +60,7 @@ std::unique_ptr<Expr> Parser::comparison()
     auto expr = term();
 
     static const auto kComparisonOps = {
-        Token::Type::kGreater, Token::Type::kGreaterEqual, Token::Type::kLess, Token::Type::kLessEqual
-    };
+        Token::Type::kGreater, Token::Type::kGreaterEqual, Token::Type::kLess, Token::Type::kLessEqual};
 
     while (Match(kComparisonOps))
     {
@@ -122,24 +134,26 @@ std::unique_ptr<Expr> Parser::primary()
     {
         return std::make_unique<Literal>(false);
     }
-    
-    if(Match(Token::Type::kNil))
+
+    if (Match(Token::Type::kNil))
     {
-        return std::make_unique<Literal>(ObjectNull());
+        return std::make_unique<Literal>(nullptr);
     }
 
     static const auto kPrimaryOps = {Token::Type::kNumber, Token::Type::kString};
 
-    if(Match(kPrimaryOps))
+    if (Match(kPrimaryOps))
     {
         return std::make_unique<Literal>(Previous().literal());
     }
 
-    if(Match(Token::Type::kLeftParen))
+    if (Match(Token::Type::kLeftParen))
     {
         auto expr = expression();
+        Consume(Token::Type::kRightParen, "Expect ')' after expression.");
         return std::make_unique<Grouping>(std::move(expr));
     }
+    throw Error(Peek(), "Expect expression.");
 }
 
 bool Parser::Match(std::initializer_list<Token::Type> types)
@@ -196,4 +210,20 @@ Token Parser::Peek()
 Token Parser::Previous()
 {
     return tokens_.at(current_ - 1);
+}
+
+Token Parser::Consume(Token::Type type, const std::string &message)
+{
+    if (Check(type))
+    {
+        return Advance();
+    }
+
+    throw Error(Peek(), message);
+}
+
+ParseError Parser::Error(Token token, const std::string &message)
+{
+    Lox::Error(token, message);
+    return ParseError(message);
 }
