@@ -2,21 +2,26 @@
 
 #include <iostream>
 
+#include "ast.h"
 #include "error.h"
-#include "lox.h"
+#include "object.h"
 
 using namespace lox;
+using namespace lox::expr;
+using namespace lox::stmt;
 
-void Interpreter::Interpret(Expr *expression)
+void Interpreter::Interpret(const Program &program)
 {
     try
     {
-        Object value = Evaluate(expression);
-        std::cout << ObjectToString(value) << std::endl;
+        for (const auto &statement : program)
+        {
+            Execute(statement.get());
+        }
     }
     catch (const RuntimeError &e)
     {
-        Lox::Error(e);
+        lox::Error(e);
     }
 }
 
@@ -96,6 +101,43 @@ Object Interpreter::Visit(Unary *expr)
     return nullptr;
 }
 
+Object Interpreter::Visit(Variable *expr)
+{
+    return environment_.Get(expr->name());
+}
+
+Object Interpreter::Visit(Assign* expr)
+{
+    Object value = Evaluate(expr->value());
+    environment_.Assign(expr->name(), value);
+    return value;
+}
+
+Object Interpreter::Visit(Expression *stmt)
+{
+    Evaluate(stmt->expression());
+    return nullptr;
+}
+
+Object Interpreter::Visit(Print *stmt)
+{
+    Object value = Evaluate(stmt->expression());
+    std::cout << ObjectToString(value) << std::endl;
+    return nullptr;
+}
+
+Object Interpreter::Visit(Var *stmt)
+{
+    Object value = nullptr;
+    if (stmt->initializer() != nullptr)
+    {
+        value = Evaluate(stmt->initializer());
+    }
+
+    environment_.Define(stmt->name().lexeme(), value);
+    return nullptr;
+}
+
 bool Interpreter::IsTruthy(const Object &obj)
 {
     if (IsObjectInstance<std::nullptr_t>(obj))
@@ -111,11 +153,11 @@ bool Interpreter::IsTruthy(const Object &obj)
 
 bool Interpreter::IsEqual(const Object &a, const Object &b)
 {
-    if (IsObjectInstance<nullptr_t>(a) && IsObjectInstance<nullptr_t>(b))
+    if (IsObjectInstance<std::nullptr_t>(a) && IsObjectInstance<std::nullptr_t>(b))
     {
         return true;
     }
-    if (IsObjectInstance<nullptr_t>(a) || IsObjectInstance<nullptr_t>(b))
+    if (IsObjectInstance<std::nullptr_t>(a) || IsObjectInstance<std::nullptr_t>(b))
     {
         return false;
     }
@@ -152,4 +194,9 @@ void Interpreter::CheckNumberOperands(const Token &oper, std::initializer_list<O
 Object Interpreter::Evaluate(Expr *expr)
 {
     return expr->Accept(this);
+}
+
+void Interpreter::Execute(stmt::Stmt *stmt)
+{
+    stmt->Accept(this);
 }

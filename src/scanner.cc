@@ -1,8 +1,8 @@
 
 #include "scanner.h"
-#include "lox.h"
 #include "object.h"
 #include "token.h"
+#include "error.h"
 #include <string>
 
 using namespace lox;
@@ -97,20 +97,20 @@ void Scanner::ScanToken()
         line_++;
         break;
     case '"':
-        String();
+        string();
         break;
     default:
         if (IsDigit(c))
         {
-            Number();
+            number();
         }
         else if(IsAlpha(c))
         {
-            Identifier();
+            identifier();
         }
         else
         {
-            Lox::Error(line_, std::string("Unexpected character: ") + c + " .");
+            lox::Error(line_, std::string("Unexpected character: ") + c + " .");
         }
         break;
     }
@@ -166,7 +166,7 @@ bool Scanner::IsAlpha(char c)
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
 
-void Scanner::String()
+void Scanner::string()
 {
     while (Peek() != '"' && !IsAtEnd())
     {
@@ -181,7 +181,7 @@ void Scanner::String()
 
     if (IsAtEnd())
     {
-        Lox::Error(line_, "Unterminated string: " + value + " .");
+        lox::Error(line_, "Unterminated string: " + value + " .");
         return;
     }
 
@@ -190,7 +190,7 @@ void Scanner::String()
     AddToken(Token::Type::kString, value);
 }
 
-void Scanner::Number()
+void Scanner::number()
 {
     while (IsDigit(Peek()))
     {
@@ -211,7 +211,7 @@ void Scanner::Number()
     AddToken(Token::Type::kNumber, std::stod(num_str));
 }
 
-void Scanner::Identifier()
+void Scanner::identifier()
 {
     while (IsAlpha(Peek()) || IsDigit(Peek()))
     {

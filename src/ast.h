@@ -1,17 +1,34 @@
 #pragma once
 
+#include <memory>
+#include <vector>
+
 #include "object.h"
 #include "token.h"
-#include <memory>
-#include <utility>
 
 namespace lox
 {
+namespace expr 
+{
+  class Expr;
+}
 
+namespace stmt {
+  class Stmt;
+}
+
+using ExprUniquePtr = std::unique_ptr<expr::Expr>;
+using StmtUniquePtr = std::unique_ptr<stmt::Stmt>;
+using Program = std::vector<StmtUniquePtr>;
+
+namespace expr
+{
 class Binary;
 class Grouping;
 class Literal;
 class Unary;
+class Variable;
+class Assign;
 
 class ExprVisitor
 {
@@ -20,6 +37,8 @@ class ExprVisitor
     virtual Object Visit(Grouping *expr) = 0;
     virtual Object Visit(Literal *expr) = 0;
     virtual Object Visit(Unary *expr) = 0;
+    virtual Object Visit(Variable *expr) = 0;
+    virtual Object Visit(Assign *expr) = 0;
 };
 
 class Expr
@@ -31,7 +50,7 @@ class Expr
 class Binary : public Expr
 {
   public:
-    Binary(std::unique_ptr<Expr> left, Token oper, std::unique_ptr<Expr> right)
+    Binary(ExprUniquePtr left, const Token &oper, ExprUniquePtr right)
         : left_(std::move(left)), operator_(oper), right_(std::move(right))
     {
     }
@@ -45,7 +64,7 @@ class Binary : public Expr
     {
         return left_.get();
     }
-    const Token& oper()
+    const Token &oper()
     {
         return operator_;
     }
@@ -55,15 +74,15 @@ class Binary : public Expr
     }
 
   private:
-    std::unique_ptr<Expr> left_;
+    ExprUniquePtr left_;
     Token operator_;
-    std::unique_ptr<Expr> right_;
+    ExprUniquePtr right_;
 };
 
 class Grouping : public Expr
 {
   public:
-    Grouping(std::unique_ptr<Expr> expression) : expression_(std::move(expression)) {}
+    Grouping(ExprUniquePtr expression) : expression_(std::move(expression)) {}
 
     Object Accept(ExprVisitor *visitor) override
     {
@@ -76,7 +95,7 @@ class Grouping : public Expr
     }
 
   private:
-    std::unique_ptr<Expr> expression_;
+    ExprUniquePtr expression_;
 };
 
 class Literal : public Expr
@@ -101,7 +120,7 @@ class Literal : public Expr
 class Unary : public Expr
 {
   public:
-    Unary(Token oper, std::unique_ptr<Expr> right) : operator_(oper), right_(std::move(right)) {}
+    Unary(const Token &oper, ExprUniquePtr right) : operator_(oper), right_(std::move(right)) {}
 
     Object Accept(ExprVisitor *visitor) override
     {
@@ -119,7 +138,136 @@ class Unary : public Expr
 
   private:
     Token operator_;
-    std::unique_ptr<Expr> right_;
+    ExprUniquePtr right_;
 };
 
+class Variable : public Expr
+{
+  public:
+    Variable(const Token &name) : name_(name) {}
+
+    Object Accept(ExprVisitor *visitor) override
+    {
+        return visitor->Visit(this);
+    }
+
+    const Token &name()
+    {
+        return name_;
+    }
+
+  private:
+    Token name_;
+};
+
+class Assign : public Expr
+{
+  public:
+    Assign(const Token &name, ExprUniquePtr value) : name_(name), value_(std::move(value)) {}
+
+    Object Accept(ExprVisitor *visitor) override
+    {
+        return visitor->Visit(this);
+    }
+
+    Expr* value()
+    {
+      return value_.get();
+    }
+
+    const Token &name()
+    {
+        return name_;
+    }
+
+  private:
+    Token name_;
+    ExprUniquePtr value_;
+};
+
+} // namespace expr
+
+namespace stmt
+{
+class Expression;
+class Print;
+class Var;
+
+class StmtVisitor
+{
+  public:
+    virtual Object Visit(Expression *expr) = 0;
+    virtual Object Visit(Print *expr) = 0;
+    virtual Object Visit(Var* var) = 0;
+};
+
+class Stmt
+{
+  public:
+    virtual Object Accept(StmtVisitor *visitor) = 0;
+};
+
+class Expression : public Stmt
+{
+  public:
+    Expression(std::unique_ptr<expr::Expr> expression) : expression_(std::move(expression)) {}
+
+    Object Accept(StmtVisitor *visitor) override
+    {
+        return visitor->Visit(this);
+    }
+
+    expr::Expr *expression()
+    {
+        return expression_.get();
+    }
+
+  private:
+    std::unique_ptr<expr::Expr> expression_;
+};
+
+class Print : public Stmt
+{
+  public:
+    Print(std::unique_ptr<expr::Expr> expression) : expression_(std::move(expression)) {}
+
+    Object Accept(StmtVisitor *visitor) override
+    {
+        return visitor->Visit(this);
+    }
+
+    expr::Expr *expression()
+    {
+        return expression_.get();
+    }
+
+  private:
+    std::unique_ptr<expr::Expr> expression_;
+};
+
+class Var : public Stmt
+{
+    public:
+    Var(const Token& name, std::unique_ptr<expr::Expr> initializer) : name_(name), initializer_(std::move(initializer)) {}
+
+    Object Accept(StmtVisitor *visitor) override
+    {
+        return visitor->Visit(this);
+    }
+
+    expr::Expr *initializer()
+    {
+        return initializer_.get();
+    }
+
+    const Token& name()
+    {
+      return name_;
+    }
+
+  private:
+    Token name_;
+    std::unique_ptr<expr::Expr> initializer_;
+};
+} // namespace stmt
 } // namespace lox

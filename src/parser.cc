@@ -1,14 +1,119 @@
 #include "parser.h"
 #include "ast.h"
-#include "lox.h"
+#include "error.h"
 #include "token.h"
 #include <memory>
 
-
 using namespace lox;
+using namespace lox::expr;
+using namespace lox::stmt;
+
+Program Parser::Parse()
+{
+    try
+    {
+        return program();
+    }
+    catch (const ParseError &e)
+    {
+        lox::Error(e);
+        return {};
+    }
+}
 
 /*
-expression     → equality ;
+program        → declaration* EOF ;
+
+declaration    → varDecl
+               | statement ;
+
+statement      → exprStmt
+               | printStmt ;
+
+exprStmt       → expression ";" ;
+printStmt      → "print" expression ";" ;
+*/
+
+// program        → statement* EOF ;
+Program Parser::program()
+{
+    std::vector<StmtUniquePtr> statements;
+
+    while (!IsAtEnd())
+    {
+        statements.push_back(std::move(declaration()));
+    }
+
+    return statements;
+}
+
+// declaration    → varDecl
+//                | statement ;
+StmtUniquePtr Parser::declaration()
+{
+    try
+    {
+        if (Match(Token::Type::kVar))
+        {
+            return var_declaration();
+        }
+        return statement();
+    }
+    catch (const ParseError &e)
+    {
+        lox::Error(e);
+        Synchronize();
+        return nullptr;
+    }
+}
+
+// varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
+StmtUniquePtr Parser::var_declaration() 
+{
+    Token name = Consume(Token::Type::kIdentifier, "Expect variable name.");
+
+    ExprUniquePtr initializer = nullptr;
+    if(Match(Token::Type::kEqual))
+    {
+        initializer = expression();
+    }
+
+    Consume(Token::Type::kSemicolon, "Expect ';' after variable declaration.");
+    return std::make_unique<Var>(name, std::move(initializer));
+}
+
+// statement      → exprStmt
+//                | printStmt ;
+StmtUniquePtr Parser::statement()
+{
+    if (Match(Token::Type::kPrint))
+    {
+        return print_statment();
+    }
+
+    return expression_statment();
+}
+
+// exprStmt       → expression ";" ;
+StmtUniquePtr Parser::print_statment()
+{
+    ExprUniquePtr value = expression();
+    Consume(Token::Type::kSemicolon, "Expect ';' after value.");
+    return std::make_unique<Print>(std::move(value));
+}
+
+// printStmt      → "print" expression ";" ;
+StmtUniquePtr Parser::expression_statment()
+{
+    ExprUniquePtr expr = expression();
+    Consume(Token::Type::kSemicolon, "Expect ';' after expression.");
+    return std::make_unique<Expression>(std::move(expr));
+}
+
+/*
+expression     → assignment ;
+assignment     → IDENTIFIER "=" assignment
+               | equality ;
 equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 term           → factor ( ( "-" | "+" ) factor )* ;
@@ -16,29 +121,42 @@ factor         → unary ( ( "/" | "*" ) unary )* ;
 unary          → ( "!" | "-" ) unary
                | primary ;
 primary        → NUMBER | STRING | "true" | "false" | "nil"
-               | "(" expression ")" ;
+               | "(" expression ")"
+               | IDENTIFIER ;
 */
 
-std::unique_ptr<Expr> Parser::Parse()
+// expression     → assignment ;
+ExprUniquePtr Parser::expression()
 {
-    try
-    {
-        return expression();
-    }
-    catch (const ParseError)
-    {
-        return nullptr;
-    }
+    return assignment();
 }
 
-// expression     → equality ;
-std::unique_ptr<Expr> Parser::expression()
+// assignment     → IDENTIFIER "=" assignment
+//                | equality ;
+ExprUniquePtr Parser::assignment()
 {
-    return equality();
+    auto expr = equality();
+    
+    if(Match(Token::Type::kEqual))
+    {
+        Token equals = Previous();
+        auto value = assignment();
+
+        Variable* var = dynamic_cast<Variable*>(expr.get());
+        if(var != nullptr)
+        {
+            Token name = var->name();
+            return std::make_unique<Assign>(name, std::move(value));
+        }
+
+        throw ParseError(equals, "Invalid assignment target.");
+    }
+
+    return expr;
 }
 
 // equality       → comparison ( ( "!=" | "==" ) comparison )* ;
-std::unique_ptr<Expr> Parser::equality()
+ExprUniquePtr Parser::equality()
 {
     auto expr = comparison();
 
@@ -47,7 +165,7 @@ std::unique_ptr<Expr> Parser::equality()
     while (Match(kEqualityOps))
     {
         Token oper = Previous();
-        std::unique_ptr<Expr> right = comparison();
+        ExprUniquePtr right = comparison();
         expr = std::make_unique<Binary>(std::move(expr), oper, std::move(right));
     }
 
@@ -55,12 +173,13 @@ std::unique_ptr<Expr> Parser::equality()
 }
 
 // comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
-std::unique_ptr<Expr> Parser::comparison()
+ExprUniquePtr Parser::comparison()
 {
     auto expr = term();
 
     static const auto kComparisonOps = {
-        Token::Type::kGreater, Token::Type::kGreaterEqual, Token::Type::kLess, Token::Type::kLessEqual};
+        Token::Type::kGreater, Token::Type::kGreaterEqual, Token::Type::kLess, Token::Type::kLessEqual
+    };
 
     while (Match(kComparisonOps))
     {
@@ -73,7 +192,7 @@ std::unique_ptr<Expr> Parser::comparison()
 }
 
 // term           → factor ( ( "-" | "+" ) factor )* ;
-std::unique_ptr<Expr> Parser::term()
+ExprUniquePtr Parser::term()
 {
     auto expr = factor();
 
@@ -90,7 +209,7 @@ std::unique_ptr<Expr> Parser::term()
 }
 
 // factor         → unary ( ( "/" | "*" ) unary )* ;
-std::unique_ptr<Expr> Parser::factor()
+ExprUniquePtr Parser::factor()
 {
     auto expr = unary();
 
@@ -108,7 +227,7 @@ std::unique_ptr<Expr> Parser::factor()
 
 // unary          → ( "!" | "-" ) unary
 //                | primary ;
-std::unique_ptr<Expr> Parser::unary()
+ExprUniquePtr Parser::unary()
 {
     static const auto kUnaryOps = {Token::Type::kBang, Token::Type::kMinus};
     if (Match(kUnaryOps))
@@ -123,7 +242,7 @@ std::unique_ptr<Expr> Parser::unary()
 
 // primary        → NUMBER | STRING | "true" | "false" | "nil"
 //                | "(" expression ")" ;
-std::unique_ptr<Expr> Parser::primary()
+ExprUniquePtr Parser::primary()
 {
     if (Match(Token::Type::kTrue))
     {
@@ -147,13 +266,19 @@ std::unique_ptr<Expr> Parser::primary()
         return std::make_unique<Literal>(Previous().literal());
     }
 
+    if (Match(Token::Type::kIdentifier))
+    {
+        return std::make_unique<Variable>(Previous());
+    }
+
     if (Match(Token::Type::kLeftParen))
     {
         auto expr = expression();
         Consume(Token::Type::kRightParen, "Expect ')' after expression.");
         return std::make_unique<Grouping>(std::move(expr));
     }
-    throw Error(Peek(), "Expect expression.");
+
+    throw ParseError(Peek(), "Expect expression.");
 }
 
 bool Parser::Match(std::initializer_list<Token::Type> types)
@@ -219,11 +344,35 @@ Token Parser::Consume(Token::Type type, const std::string &message)
         return Advance();
     }
 
-    throw Error(Peek(), message);
+    throw ParseError(Peek(), message);
 }
 
-ParseError Parser::Error(Token token, const std::string &message)
+void Parser::Synchronize()
 {
-    Lox::Error(token, message);
-    return ParseError(message);
+    Advance();
+
+    while (!IsAtEnd())
+    {
+        if (Previous().type() == Token::Type::kSemicolon)
+        {
+            return;
+        }
+
+        switch (Peek().type())
+        {
+        case Token::Type::kClass:
+        case Token::Type::kFun:
+        case Token::Type::kVar:
+        case Token::Type::kFor:
+        case Token::Type::kIf:
+        case Token::Type::kWhile:
+        case Token::Type::kPrint:
+        case Token::Type::kReturn:
+            return;
+        default:
+            break;
+        }
+
+        Advance();
+    }
 }

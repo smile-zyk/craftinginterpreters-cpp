@@ -29,9 +29,9 @@ class Scanner
     bool IsDigit(char c);
     bool IsAlpha(char c);
 
-    void String();
-    void Number();
-    void Identifier();
+    void string();
+    void number();
+    void identifier();
 
     void AddToken(Token::Type type);
     void AddToken(Token::Type type, Object literal);

@@ -1,11 +1,9 @@
 #pragma once
 
-#include <memory>
 #include <vector>
 
 #include "token.h"
 #include "ast.h"
-#include "error.h"
 
 namespace lox
 {
@@ -14,16 +12,26 @@ class Parser
 public:
     Parser(const std::vector<Token>& tokens): tokens_(tokens){}
 
-    std::unique_ptr<Expr> Parse();
+    Program Parse();
     
 private:
-    std::unique_ptr<Expr> expression();
-    std::unique_ptr<Expr> equality();
-    std::unique_ptr<Expr> comparison();
-    std::unique_ptr<Expr> term();
-    std::unique_ptr<Expr> factor();
-    std::unique_ptr<Expr> unary();
-    std::unique_ptr<Expr> primary();
+    // parse stmt
+    Program program();
+    StmtUniquePtr declaration();
+    StmtUniquePtr var_declaration();
+    StmtUniquePtr statement();
+    StmtUniquePtr print_statment();
+    StmtUniquePtr expression_statment();
+
+    // parse expr
+    ExprUniquePtr expression();
+    ExprUniquePtr assignment();
+    ExprUniquePtr equality();
+    ExprUniquePtr comparison();
+    ExprUniquePtr term();
+    ExprUniquePtr factor();
+    ExprUniquePtr unary();
+    ExprUniquePtr primary();
 
 private:
     // helper func
@@ -35,7 +43,7 @@ private:
     Token Peek();
     Token Previous();
     Token Consume(Token::Type type, const std::string& message);
-    ParseError Error(Token token, const std::string& message);
+    void Synchronize();
 
 private:
     size_t current_ = 0;

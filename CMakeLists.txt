@@ -29,6 +29,9 @@ src/interpreter.h
 src/interpreter.cc
 src/ast.h
 src/error.h
+src/error.cc
+src/environment.h
+src/environment.cc
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE magic_enum::magic_enum)
