@@ -28,6 +28,7 @@ namespace expr
 class Binary;
 class Grouping;
 class Literal;
+class Logical;
 class Unary;
 class Variable;
 class Assign;
@@ -41,6 +42,7 @@ class ExprVisitor
     virtual Object Visit(Unary *expr) = 0;
     virtual Object Visit(Variable *expr) = 0;
     virtual Object Visit(Assign *expr) = 0;
+    virtual Object Visit(Logical *expr) = 0;
 };
 
 class Expr
@@ -119,6 +121,38 @@ class Literal : public Expr
     Object value_;
 };
 
+class Logical : public Expr
+{
+  public:
+    Logical(ExprUniquePtr left, const Token &oper, ExprUniquePtr right)
+        : left_(std::move(left)), operator_(oper), right_(std::move(right))
+    {
+    }
+
+    Object Accept(ExprVisitor *visitor) override
+    {
+        return visitor->Visit(this);
+    }
+
+    Expr *left()
+    {
+        return left_.get();
+    }
+    const Token &oper()
+    {
+        return operator_;
+    }
+    Expr *right()
+    {
+        return right_.get();
+    }
+
+  private:
+    ExprUniquePtr left_;
+    Token operator_;
+    ExprUniquePtr right_;
+};
+
 class Unary : public Expr
 {
   public:
@@ -195,6 +229,8 @@ class Expression;
 class Print;
 class Var;
 class Block;
+class If;
+class While;
 
 class StmtVisitor
 {
@@ -203,6 +239,8 @@ class StmtVisitor
     virtual Object Visit(Print *stmt) = 0;
     virtual Object Visit(Var *stmt) = 0;
     virtual Object Visit(Block *stmt) = 0;
+    virtual Object Visit(If *stmt) = 0;
+    virtual Object Visit(While *stmt) = 0;
 };
 
 class Stmt
@@ -214,7 +252,7 @@ class Stmt
 class Expression : public Stmt
 {
   public:
-    Expression(std::unique_ptr<expr::Expr> expression) : expression_(std::move(expression)) {}
+    Expression(ExprUniquePtr expression) : expression_(std::move(expression)) {}
 
     Object Accept(StmtVisitor *visitor) override
     {
@@ -227,13 +265,13 @@ class Expression : public Stmt
     }
 
   private:
-    std::unique_ptr<expr::Expr> expression_;
+    ExprUniquePtr expression_;
 };
 
 class Print : public Stmt
 {
   public:
-    Print(std::unique_ptr<expr::Expr> expression) : expression_(std::move(expression)) {}
+    Print(ExprUniquePtr expression) : expression_(std::move(expression)) {}
 
     Object Accept(StmtVisitor *visitor) override
     {
@@ -246,15 +284,13 @@ class Print : public Stmt
     }
 
   private:
-    std::unique_ptr<expr::Expr> expression_;
+    ExprUniquePtr expression_;
 };
 
 class Var : public Stmt
 {
   public:
-    Var(const Token &name, std::unique_ptr<expr::Expr> initializer) : name_(name), initializer_(std::move(initializer))
-    {
-    }
+    Var(const Token &name, ExprUniquePtr initializer) : name_(name), initializer_(std::move(initializer)) {}
 
     Object Accept(StmtVisitor *visitor) override
     {
@@ -273,7 +309,7 @@ class Var : public Stmt
 
   private:
     Token name_;
-    std::unique_ptr<expr::Expr> initializer_;
+    ExprUniquePtr initializer_;
 };
 
 class Block : public Stmt
@@ -292,6 +328,65 @@ class Block : public Stmt
 
   private:
     StmtList statements_;
+};
+
+class If : public Stmt
+{
+  public:
+    If(ExprUniquePtr condition, StmtUniquePtr then_branch, StmtUniquePtr else_branch)
+        : condition_(std::move(condition)), then_branch_(std::move(then_branch)), else_branch_(std::move(else_branch))
+    {
+    }
+
+    Object Accept(StmtVisitor *visitor) override
+    {
+        return visitor->Visit(this);
+    }
+
+    expr::Expr *condition()
+    {
+        return condition_.get();
+    }
+
+    Stmt *then_branch()
+    {
+        return then_branch_.get();
+    }
+
+    Stmt *else_branch()
+    {
+        return else_branch_.get();
+    }
+
+  private:
+    ExprUniquePtr condition_;
+    StmtUniquePtr then_branch_;
+    StmtUniquePtr else_branch_;
+};
+
+class While : public Stmt
+{
+  public:
+    While(ExprUniquePtr condition, StmtUniquePtr body) : condition_(std::move(condition)), body_(std::move(body)) {}
+
+    Object Accept(StmtVisitor *visitor) override
+    {
+        return visitor->Visit(this);
+    }
+
+    expr::Expr *condition()
+    {
+        return condition_.get();
+    }
+
+    Stmt *body()
+    {
+        return body_.get();
+    }
+
+  private:
+    ExprUniquePtr condition_;
+    StmtUniquePtr body_;
 };
 
 } // namespace stmt

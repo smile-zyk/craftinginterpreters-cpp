@@ -20,13 +20,18 @@ private:
     StmtUniquePtr declaration();
     StmtUniquePtr var_declaration();
     StmtUniquePtr statement();
-    StmtUniquePtr print_statment();
     StmtUniquePtr expression_statment();
+    StmtUniquePtr if_statement();
+    StmtUniquePtr print_statement();
+    StmtUniquePtr while_statement();
+    StmtUniquePtr for_statement();
     StmtUniquePtr block();
 
     // parse expr
     ExprUniquePtr expression();
     ExprUniquePtr assignment();
+    ExprUniquePtr logic_or();
+    ExprUniquePtr logic_and();
     ExprUniquePtr equality();
     ExprUniquePtr comparison();
     ExprUniquePtr term();

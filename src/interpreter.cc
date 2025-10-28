@@ -116,6 +116,28 @@ Object Interpreter::Visit(Assign* expr)
     return value;
 }
 
+Object Interpreter::Visit(Logical* expr)
+{
+    Object left = Evaluate(expr->left());
+    
+    if(expr->oper().type() == Token::Type::kOr)
+    {
+        if(IsTruthy(left))
+        {
+            return left;
+        }
+    }
+    else
+    {
+        if(!IsTruthy(left))
+        {
+            return left;
+        }
+    }
+
+    return Evaluate(expr->right());
+}
+
 Object Interpreter::Visit(Expression *stmt)
 {
     Evaluate(stmt->expression());
@@ -144,6 +166,28 @@ Object Interpreter::Visit(Var *stmt)
 Object Interpreter::Visit(Block *stmt)
 {
     ExecuteBlock(stmt->statements(), std::make_unique<Environment>(environment_.get()));
+    return nullptr;
+}
+
+Object Interpreter::Visit(If *stmt)
+{
+    if(IsTruthy(Evaluate(stmt->condition())))
+    {
+        Execute(stmt->then_branch());
+    }
+    else if(stmt->else_branch() != nullptr)
+    {
+        Execute(stmt->else_branch());
+    }
+    return nullptr;
+}
+
+Object Interpreter::Visit(While* stmt)
+{
+    while(IsTruthy(Evaluate(stmt->condition())))
+    {
+        Execute(stmt->body());
+    }
     return nullptr;
 }
 

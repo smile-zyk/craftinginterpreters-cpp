@@ -2,7 +2,6 @@
 #include "ast.h"
 #include "error.h"
 #include "token.h"
-#include <memory>
 
 using namespace lox;
 using namespace lox::expr;
@@ -28,8 +27,20 @@ declaration    → varDecl
                | statement ;
 
 statement      → exprStmt
-               | printStmt 
+               | forStmt
+               | ifStmt
+               | printStmt
+               | whileStmt
                | block ;
+
+forStmt        → "for" "(" ( varDecl | exprStmt | ";" )
+                 expression? ";"
+                 expression? ")" statement ;
+
+whileStmt      → "while" "(" expression ")" statement ;
+
+ifStmt         → "if" "(" expression ")" statement
+               ( "else" statement )? ;
 
 block          → "{" declaration* "}" ;
 
@@ -86,19 +97,141 @@ StmtUniquePtr Parser::var_declaration()
 }
 
 // statement      → exprStmt
-//                | printStmt ;
+//                | forStmt
+//                | ifStmt
+//                | printStmt
+//                | whileStmt
 //                | block ;
 StmtUniquePtr Parser::statement()
 {
+    if (Match(Token::Type::kIf))
+    {
+        return if_statement();
+    }
     if (Match(Token::Type::kPrint))
     {
-        return print_statment();
+        return print_statement();
+    }
+    if (Match(Token::Type::kWhile))
+    {
+        return while_statement();
+    }
+    if (Match(Token::Type::kFor))
+    {
+        return for_statement();
     }
     if (Match(Token::Type::kLeftBrace))
     {
         return block();
     }
     return expression_statment();
+}
+
+// exprStmt       → expression ";" ;
+StmtUniquePtr Parser::expression_statment()
+{
+    ExprUniquePtr expr = expression();
+    Consume(Token::Type::kSemicolon, "Expect ';' after expression.");
+    return std::make_unique<Expression>(std::move(expr));
+}
+
+// ifStmt         → "if" "(" expression ")" statement
+//                ( "else" statement )? ;
+StmtUniquePtr Parser::if_statement()
+{
+    Consume(Token::Type::kLeftParen, "Expect '(' after 'if'.");
+    ExprUniquePtr condition = expression();
+    Consume(Token::Type::kRightParen, "Expect ')' after if condition.");
+    
+    StmtUniquePtr then_branch = statement();
+    StmtUniquePtr else_branch = nullptr;
+    if(Match(Token::Type::kElse))
+    {
+        else_branch = statement();
+    }
+
+    return std::make_unique<If>(std::move(condition), std::move(then_branch), std::move(else_branch));
+}
+
+// printStmt      → "print" expression ";" ;
+StmtUniquePtr Parser::print_statement()
+{
+    ExprUniquePtr value = expression();
+    Consume(Token::Type::kSemicolon, "Expect ';' after value.");
+    return std::make_unique<Print>(std::move(value));
+}
+
+// whileStmt      → "while" "(" expression ")" statement ;
+StmtUniquePtr Parser::while_statement()
+{
+    Consume(Token::Type::kLeftParen, "Expect '(' after 'while'.");
+    ExprUniquePtr condition = expression();
+    Consume(Token::Type::kRightParen, "Expect ')' after condition.");
+    StmtUniquePtr body = statement();
+    
+    return std::make_unique<While>(std::move(condition), std::move(body));
+}
+
+// forStmt        → "for" "(" ( varDecl | exprStmt | ";" )
+//                  expression? ";"
+//                  expression? ")" statement ;
+StmtUniquePtr Parser::for_statement()
+{
+    Consume(Token::Type::kLeftParen, "Expect '(' after 'for'.");
+    
+    StmtUniquePtr initializer;
+    if(Match(Token::Type::kSemicolon))
+    {
+        initializer = nullptr;
+    }
+    else if(Match(Token::Type::kVar))
+    {
+        initializer = var_declaration();
+    }
+    else 
+    {
+        initializer = expression_statment();
+    }
+
+    ExprUniquePtr condition = nullptr;
+    if(!Check(Token::Type::kSemicolon))
+    {
+        condition = expression();
+    }
+    Consume(Token::Type::kSemicolon, "Expect ';' after loop condition.");
+
+    ExprUniquePtr increment = nullptr;
+    if(!Check(Token::Type::kRightParen))
+    {
+        increment = expression();
+    }
+    Consume(Token::Type::kRightParen, "Expect ')' after for clauses.");
+    
+    StmtUniquePtr body = statement();
+
+    if(increment != nullptr)
+    {
+        StmtList statements;
+        statements.push_back(std::move(body));
+        statements.push_back(std::make_unique<Expression>(std::move(increment)));
+        body = std::make_unique<Block>(std::move(statements));
+    }
+
+    if(condition == nullptr)
+    {
+        condition = std::make_unique<Literal>(true);
+    }
+    body = std::make_unique<While>(std::move(condition), std::move(body));
+
+    if(initializer != nullptr)
+    {
+        StmtList statements;
+        statements.push_back(std::move(initializer));
+        statements.push_back(std::move(body));
+        body = std::make_unique<Block>(std::move(statements));
+    }
+
+    return body;
 }
 
 // block          → "{" declaration* "}" ;
@@ -116,26 +249,12 @@ StmtUniquePtr Parser::block()
     return std::make_unique<Block>(std::move(statements));
 }
 
-// exprStmt       → expression ";" ;
-StmtUniquePtr Parser::print_statment()
-{
-    ExprUniquePtr value = expression();
-    Consume(Token::Type::kSemicolon, "Expect ';' after value.");
-    return std::make_unique<Print>(std::move(value));
-}
-
-// printStmt      → "print" expression ";" ;
-StmtUniquePtr Parser::expression_statment()
-{
-    ExprUniquePtr expr = expression();
-    Consume(Token::Type::kSemicolon, "Expect ';' after expression.");
-    return std::make_unique<Expression>(std::move(expr));
-}
-
 /*
 expression     → assignment ;
 assignment     → IDENTIFIER "=" assignment
-               | equality ;
+               | logic_or ;
+logic_or       → logic_and ( "or" logic_and )* ;
+logic_and      → equality ( "and" equality )* ;
 equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 term           → factor ( ( "-" | "+" ) factor )* ;
@@ -154,10 +273,10 @@ ExprUniquePtr Parser::expression()
 }
 
 // assignment     → IDENTIFIER "=" assignment
-//                | equality ;
+//                | logic_or ;
 ExprUniquePtr Parser::assignment()
 {
-    auto expr = equality();
+    auto expr = logic_or();
     
     if(Match(Token::Type::kEqual))
     {
@@ -172,6 +291,36 @@ ExprUniquePtr Parser::assignment()
         }
 
         throw ParseError(equals, "Invalid assignment target.");
+    }
+
+    return expr;
+}
+
+// logic_or       → logic_and ( "or" logic_and )* ;
+ExprUniquePtr Parser::logic_or()
+{
+    auto expr = logic_and();
+
+    while(Match(Token::Type::kOr))
+    {
+        Token oper = Previous();
+        auto right = logic_and();
+        expr = std::make_unique<Logical>(std::move(expr), oper, std::move(right));
+    }
+
+    return expr;
+}
+
+// logic_and      → equality ( "and" equality )* ;
+ExprUniquePtr Parser::logic_and()
+{
+    auto expr = equality();
+
+    while(Match(Token::Type::kAnd))
+    {
+        Token oper = Previous();
+        auto right = equality();
+        expr = std::make_unique<Logical>(std::move(expr), oper, std::move(right));
     }
 
     return expr;
