@@ -1,8 +1,11 @@
 #include "interpreter.h"
 
 #include <iostream>
+#include <memory>
+#include <utility>
 
 #include "ast.h"
+#include "environment.h"
 #include "error.h"
 #include "object.h"
 
@@ -103,13 +106,13 @@ Object Interpreter::Visit(Unary *expr)
 
 Object Interpreter::Visit(Variable *expr)
 {
-    return environment_.Get(expr->name());
+    return environment_->Get(expr->name());
 }
 
 Object Interpreter::Visit(Assign* expr)
 {
     Object value = Evaluate(expr->value());
-    environment_.Assign(expr->name(), value);
+    environment_->Assign(expr->name(), value);
     return value;
 }
 
@@ -134,7 +137,13 @@ Object Interpreter::Visit(Var *stmt)
         value = Evaluate(stmt->initializer());
     }
 
-    environment_.Define(stmt->name().lexeme(), value);
+    environment_->Define(stmt->name().lexeme(), value);
+    return nullptr;
+}
+
+Object Interpreter::Visit(Block *stmt)
+{
+    ExecuteBlock(stmt->statements(), std::make_unique<Environment>(environment_.get()));
     return nullptr;
 }
 
@@ -199,4 +208,33 @@ Object Interpreter::Evaluate(Expr *expr)
 void Interpreter::Execute(stmt::Stmt *stmt)
 {
     stmt->Accept(this);
+}
+
+void Interpreter::ExecuteBlock(const StmtList& statements, EnvironmentUniquePtr environment)
+{
+    EnvironmentUniquePtr previous = std::move(environment_);
+    try 
+    {
+        environment_ = std::move(environment);
+
+        for(const StmtUniquePtr& statement : statements)
+        {
+            Execute(statement.get());
+        }
+    } 
+    catch (const ParseError& e) 
+    {
+        lox::Error(e);
+    }
+    catch (const RuntimeError& e)
+    {
+        lox::Error(e);
+    }
+    catch(...)
+    {
+        environment_ = std::move(previous);
+        throw;
+    }
+
+    environment_ = std::move(previous);
 }

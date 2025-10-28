@@ -28,7 +28,10 @@ declaration    → varDecl
                | statement ;
 
 statement      → exprStmt
-               | printStmt ;
+               | printStmt 
+               | block ;
+
+block          → "{" declaration* "}" ;
 
 exprStmt       → expression ";" ;
 printStmt      → "print" expression ";" ;
@@ -84,14 +87,33 @@ StmtUniquePtr Parser::var_declaration()
 
 // statement      → exprStmt
 //                | printStmt ;
+//                | block ;
 StmtUniquePtr Parser::statement()
 {
     if (Match(Token::Type::kPrint))
     {
         return print_statment();
     }
-
+    if (Match(Token::Type::kLeftBrace))
+    {
+        return block();
+    }
     return expression_statment();
+}
+
+// block          → "{" declaration* "}" ;
+StmtUniquePtr Parser::block()
+{
+    StmtList statements;
+    
+    while(!Check(Token::Type::kRightBrace) && !IsAtEnd())
+    {
+        statements.push_back(declaration());
+    }
+    
+    Consume(Token::Type::kRightBrace, "Expect '}' after block.");
+
+    return std::make_unique<Block>(std::move(statements));
 }
 
 // exprStmt       → expression ";" ;

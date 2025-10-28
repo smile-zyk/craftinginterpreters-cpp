@@ -22,6 +22,7 @@ private:
     StmtUniquePtr statement();
     StmtUniquePtr print_statment();
     StmtUniquePtr expression_statment();
+    StmtUniquePtr block();
 
     // parse expr
     ExprUniquePtr expression();

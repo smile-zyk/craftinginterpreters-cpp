@@ -15,7 +15,7 @@ const Object &Environment::Get(const Token &name)
     {
         return it->second;
     }
-
+    if(enclosing_ != nullptr) return enclosing_->Get(name);
     throw RuntimeError(name, "Undefined variable '" + name.lexeme() + "'.");
 }
 
@@ -25,6 +25,12 @@ void Environment::Assign(const Token &name, const Object &value)
     if(it != values_.end())
     {
         it->second = value;
+        return;
+    }
+
+    if(enclosing_ != nullptr)
+    {
+        enclosing_->Assign(name, value);
         return;
     }
 

@@ -8,18 +8,20 @@
 
 namespace lox
 {
-namespace expr 
+namespace expr
 {
-  class Expr;
+class Expr;
 }
 
-namespace stmt {
-  class Stmt;
+namespace stmt
+{
+class Stmt;
 }
 
 using ExprUniquePtr = std::unique_ptr<expr::Expr>;
 using StmtUniquePtr = std::unique_ptr<stmt::Stmt>;
 using Program = std::vector<StmtUniquePtr>;
+using StmtList = std::vector<StmtUniquePtr>;
 
 namespace expr
 {
@@ -170,9 +172,9 @@ class Assign : public Expr
         return visitor->Visit(this);
     }
 
-    Expr* value()
+    Expr *value()
     {
-      return value_.get();
+        return value_.get();
     }
 
     const Token &name()
@@ -192,13 +194,15 @@ namespace stmt
 class Expression;
 class Print;
 class Var;
+class Block;
 
 class StmtVisitor
 {
   public:
-    virtual Object Visit(Expression *expr) = 0;
-    virtual Object Visit(Print *expr) = 0;
-    virtual Object Visit(Var* var) = 0;
+    virtual Object Visit(Expression *stmt) = 0;
+    virtual Object Visit(Print *stmt) = 0;
+    virtual Object Visit(Var *stmt) = 0;
+    virtual Object Visit(Block *stmt) = 0;
 };
 
 class Stmt
@@ -247,8 +251,10 @@ class Print : public Stmt
 
 class Var : public Stmt
 {
-    public:
-    Var(const Token& name, std::unique_ptr<expr::Expr> initializer) : name_(name), initializer_(std::move(initializer)) {}
+  public:
+    Var(const Token &name, std::unique_ptr<expr::Expr> initializer) : name_(name), initializer_(std::move(initializer))
+    {
+    }
 
     Object Accept(StmtVisitor *visitor) override
     {
@@ -260,14 +266,33 @@ class Var : public Stmt
         return initializer_.get();
     }
 
-    const Token& name()
+    const Token &name()
     {
-      return name_;
+        return name_;
     }
 
   private:
     Token name_;
     std::unique_ptr<expr::Expr> initializer_;
 };
+
+class Block : public Stmt
+{
+  public:
+    Block(StmtList statements) : statements_(std::move(statements)) {}
+    Object Accept(StmtVisitor *visitor) override
+    {
+        return visitor->Visit(this);
+    }
+
+    const StmtList &statements()
+    {
+        return statements_;
+    }
+
+  private:
+    StmtList statements_;
+};
+
 } // namespace stmt
 } // namespace lox
