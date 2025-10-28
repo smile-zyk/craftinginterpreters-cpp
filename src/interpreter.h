@@ -10,7 +10,7 @@ namespace lox
 class Interpreter : public expr::ExprVisitor, stmt::StmtVisitor
 {
   public:
-    Interpreter() : environment_(std::make_unique<Environment>()) {}
+    Interpreter();
     void Interpret(const Program &program);
 
     Object Visit(expr::Binary *expr) override;
@@ -20,6 +20,7 @@ class Interpreter : public expr::ExprVisitor, stmt::StmtVisitor
     Object Visit(expr::Variable *expr) override;
     Object Visit(expr::Assign *expr) override;
     Object Visit(expr::Logical *expr) override;
+    Object Visit(expr::Call* expr) override;
 
     Object Visit(stmt::Expression *stmt) override;
     Object Visit(stmt::Print *stmt) override;

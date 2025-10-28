@@ -1,4 +1,5 @@
 #include "object.h"
+#include "callable.h"
 
 #include <cstddef>
 #include <sstream>
@@ -17,7 +18,7 @@ std::string ObjectToString(const Object &obj)
             else if constexpr (std::is_same_v<T, double>)
             {
                 std::ostringstream oss;
-                oss << arg;
+                oss << std::fixed << arg;
                 return oss.str();
             }
             else if constexpr (std::is_same_v<T, bool>) 
@@ -27,6 +28,10 @@ std::string ObjectToString(const Object &obj)
             else if constexpr (std::is_same_v<T, std::string>)
             {
                 return arg;
+            }
+            else if constexpr (std::is_same_v<T, CallablePtr>)
+            {
+                return arg->ToString();
             }
             return "";
         },

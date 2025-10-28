@@ -37,6 +37,8 @@ private:
     ExprUniquePtr term();
     ExprUniquePtr factor();
     ExprUniquePtr unary();
+    ExprUniquePtr call();
+    ExprUniquePtr finish_call(ExprUniquePtr callee);
     ExprUniquePtr primary();
 
 private:

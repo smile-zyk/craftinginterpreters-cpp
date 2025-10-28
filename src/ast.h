@@ -20,8 +20,9 @@ class Stmt;
 
 using ExprUniquePtr = std::unique_ptr<expr::Expr>;
 using StmtUniquePtr = std::unique_ptr<stmt::Stmt>;
-using Program = std::vector<StmtUniquePtr>;
+using ExprList = std::vector<ExprUniquePtr>;
 using StmtList = std::vector<StmtUniquePtr>;
+using Program = std::vector<StmtUniquePtr>;
 
 namespace expr
 {
@@ -32,6 +33,7 @@ class Logical;
 class Unary;
 class Variable;
 class Assign;
+class Call;
 
 class ExprVisitor
 {
@@ -43,6 +45,7 @@ class ExprVisitor
     virtual Object Visit(Variable *expr) = 0;
     virtual Object Visit(Assign *expr) = 0;
     virtual Object Visit(Logical *expr) = 0;
+    virtual Object Visit(Call *expr) = 0;
 };
 
 class Expr
@@ -221,6 +224,36 @@ class Assign : public Expr
     ExprUniquePtr value_;
 };
 
+class Call : public Expr
+{
+  public:
+    Call(ExprUniquePtr callee, const Token &paren, ExprList arguments) : callee_(std::move(callee)), paren_(paren), arguments_(std::move(arguments)) {}
+
+    Object Accept(ExprVisitor *visitor) override
+    {
+        return visitor->Visit(this);
+    }
+
+    Expr *callee()
+    {
+        return callee_.get();
+    }
+
+    const Token &paren()
+    {
+        return paren_;
+    }
+
+    const ExprList &arguments()
+    {
+        return arguments_;
+    }
+
+  private:
+    ExprUniquePtr callee_;
+    Token paren_;
+    ExprList arguments_;
+};
 } // namespace expr
 
 namespace stmt

@@ -2,10 +2,13 @@
 
 #include <variant>
 #include <string>
+#include <memory>
 
 namespace lox
 {
-using Object = std::variant<std::nullptr_t, double, bool, std::string>;
+class Callable;
+using CallablePtr = std::shared_ptr<Callable>;
+using Object = std::variant<std::nullptr_t, double, bool, std::string, CallablePtr>;
 
 std::string ObjectToString(const Object& obj);
 

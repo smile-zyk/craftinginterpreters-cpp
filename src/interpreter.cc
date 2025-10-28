@@ -1,10 +1,11 @@
 #include "interpreter.h"
 
 #include <iostream>
+#include <chrono>
 #include <memory>
-#include <utility>
 
 #include "ast.h"
+#include "callable.h"
 #include "environment.h"
 #include "error.h"
 #include "object.h"
@@ -12,6 +13,31 @@
 using namespace lox;
 using namespace lox::expr;
 using namespace lox::stmt;
+
+Object clock_func(Interpreter*, const std::vector<Object>&)
+{
+    auto now = std::chrono::system_clock::now();
+    auto duration = now.time_since_epoch();
+    auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+    int secs = static_cast<int>(millis / 1000.0);
+    return static_cast<double>(secs);
+}
+
+Object print_func(Interpreter*, const std::vector<Object>& arguments)
+{
+    if(arguments.size() == 1)
+    {
+        std::cout << ObjectToString(arguments.at(0)) << std::endl;
+    }
+
+    return nullptr;
+}
+
+Interpreter::Interpreter() : environment_(std::make_unique<Environment>())
+{
+    environment_->Define("clock", std::make_shared<BuiltinCallable>("clock", clock_func, 0));
+    environment_->Define("print", std::make_shared<BuiltinCallable>("print", print_func, 1));
+}
 
 void Interpreter::Interpret(const Program &program)
 {
@@ -109,33 +135,61 @@ Object Interpreter::Visit(Variable *expr)
     return environment_->Get(expr->name());
 }
 
-Object Interpreter::Visit(Assign* expr)
+Object Interpreter::Visit(Assign *expr)
 {
     Object value = Evaluate(expr->value());
     environment_->Assign(expr->name(), value);
     return value;
 }
 
-Object Interpreter::Visit(Logical* expr)
+Object Interpreter::Visit(Logical *expr)
 {
     Object left = Evaluate(expr->left());
-    
-    if(expr->oper().type() == Token::Type::kOr)
+
+    if (expr->oper().type() == Token::Type::kOr)
     {
-        if(IsTruthy(left))
+        if (IsTruthy(left))
         {
             return left;
         }
     }
     else
     {
-        if(!IsTruthy(left))
+        if (!IsTruthy(left))
         {
             return left;
         }
     }
 
     return Evaluate(expr->right());
+}
+
+Object Interpreter::Visit(Call *expr)
+{
+    Object callee = Evaluate(expr->callee());
+
+    std::vector<Object> arguments;
+    for (const ExprUniquePtr &argument : expr->arguments())
+    {
+        arguments.push_back(Evaluate(argument.get()));
+    }
+
+    if (IsObjectInstance<CallablePtr>(callee) == false)
+    {
+        throw RuntimeError(expr->paren(), "Can only call functions and classes");
+    }
+
+    CallablePtr function = std::get<CallablePtr>(callee);
+
+    if (function->arity() != arguments.size())
+    {
+        throw RuntimeError(
+            expr->paren(), "Expected " + std::to_string(function->arity()) + " arguments but got " +
+                               std::to_string(arguments.size()) + "."
+        );
+    }
+
+    return function->Call(this, arguments);
 }
 
 Object Interpreter::Visit(Expression *stmt)
@@ -171,20 +225,20 @@ Object Interpreter::Visit(Block *stmt)
 
 Object Interpreter::Visit(If *stmt)
 {
-    if(IsTruthy(Evaluate(stmt->condition())))
+    if (IsTruthy(Evaluate(stmt->condition())))
     {
         Execute(stmt->then_branch());
     }
-    else if(stmt->else_branch() != nullptr)
+    else if (stmt->else_branch() != nullptr)
     {
         Execute(stmt->else_branch());
     }
     return nullptr;
 }
 
-Object Interpreter::Visit(While* stmt)
+Object Interpreter::Visit(While *stmt)
 {
-    while(IsTruthy(Evaluate(stmt->condition())))
+    while (IsTruthy(Evaluate(stmt->condition())))
     {
         Execute(stmt->body());
     }
@@ -254,27 +308,27 @@ void Interpreter::Execute(stmt::Stmt *stmt)
     stmt->Accept(this);
 }
 
-void Interpreter::ExecuteBlock(const StmtList& statements, EnvironmentUniquePtr environment)
+void Interpreter::ExecuteBlock(const StmtList &statements, EnvironmentUniquePtr environment)
 {
     EnvironmentUniquePtr previous = std::move(environment_);
-    try 
+    try
     {
         environment_ = std::move(environment);
 
-        for(const StmtUniquePtr& statement : statements)
+        for (const StmtUniquePtr &statement : statements)
         {
             Execute(statement.get());
         }
-    } 
-    catch (const ParseError& e) 
+    }
+    catch (const ParseError &e)
     {
         lox::Error(e);
     }
-    catch (const RuntimeError& e)
+    catch (const RuntimeError &e)
     {
         lox::Error(e);
     }
-    catch(...)
+    catch (...)
     {
         environment_ = std::move(previous);
         throw;

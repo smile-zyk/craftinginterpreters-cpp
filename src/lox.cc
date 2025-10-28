@@ -21,7 +21,7 @@ void Lox::RunFile(const std::string &path)
     std::ifstream file(path);
     if (!file.is_open())
     {
-        throw std::runtime_error("can not open file: " + path);
+        std::cerr << "can not open file: " + path << std::endl;
     }
 
     std::stringstream buffer;

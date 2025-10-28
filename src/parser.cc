@@ -2,6 +2,8 @@
 #include "ast.h"
 #include "error.h"
 #include "token.h"
+#include <algorithm>
+#include <utility>
 
 using namespace lox;
 using namespace lox::expr;
@@ -82,12 +84,12 @@ StmtUniquePtr Parser::declaration()
 }
 
 // varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
-StmtUniquePtr Parser::var_declaration() 
+StmtUniquePtr Parser::var_declaration()
 {
     Token name = Consume(Token::Type::kIdentifier, "Expect variable name.");
 
     ExprUniquePtr initializer = nullptr;
-    if(Match(Token::Type::kEqual))
+    if (Match(Token::Type::kEqual))
     {
         initializer = expression();
     }
@@ -108,10 +110,10 @@ StmtUniquePtr Parser::statement()
     {
         return if_statement();
     }
-    if (Match(Token::Type::kPrint))
-    {
-        return print_statement();
-    }
+    // if (Match(Token::Type::kPrint))
+    // {
+    //     return print_statement();
+    // }
     if (Match(Token::Type::kWhile))
     {
         return while_statement();
@@ -142,10 +144,10 @@ StmtUniquePtr Parser::if_statement()
     Consume(Token::Type::kLeftParen, "Expect '(' after 'if'.");
     ExprUniquePtr condition = expression();
     Consume(Token::Type::kRightParen, "Expect ')' after if condition.");
-    
+
     StmtUniquePtr then_branch = statement();
     StmtUniquePtr else_branch = nullptr;
-    if(Match(Token::Type::kElse))
+    if (Match(Token::Type::kElse))
     {
         else_branch = statement();
     }
@@ -168,7 +170,7 @@ StmtUniquePtr Parser::while_statement()
     ExprUniquePtr condition = expression();
     Consume(Token::Type::kRightParen, "Expect ')' after condition.");
     StmtUniquePtr body = statement();
-    
+
     return std::make_unique<While>(std::move(condition), std::move(body));
 }
 
@@ -178,38 +180,38 @@ StmtUniquePtr Parser::while_statement()
 StmtUniquePtr Parser::for_statement()
 {
     Consume(Token::Type::kLeftParen, "Expect '(' after 'for'.");
-    
+
     StmtUniquePtr initializer;
-    if(Match(Token::Type::kSemicolon))
+    if (Match(Token::Type::kSemicolon))
     {
         initializer = nullptr;
     }
-    else if(Match(Token::Type::kVar))
+    else if (Match(Token::Type::kVar))
     {
         initializer = var_declaration();
     }
-    else 
+    else
     {
         initializer = expression_statment();
     }
 
     ExprUniquePtr condition = nullptr;
-    if(!Check(Token::Type::kSemicolon))
+    if (!Check(Token::Type::kSemicolon))
     {
         condition = expression();
     }
     Consume(Token::Type::kSemicolon, "Expect ';' after loop condition.");
 
     ExprUniquePtr increment = nullptr;
-    if(!Check(Token::Type::kRightParen))
+    if (!Check(Token::Type::kRightParen))
     {
         increment = expression();
     }
     Consume(Token::Type::kRightParen, "Expect ')' after for clauses.");
-    
+
     StmtUniquePtr body = statement();
 
-    if(increment != nullptr)
+    if (increment != nullptr)
     {
         StmtList statements;
         statements.push_back(std::move(body));
@@ -217,13 +219,13 @@ StmtUniquePtr Parser::for_statement()
         body = std::make_unique<Block>(std::move(statements));
     }
 
-    if(condition == nullptr)
+    if (condition == nullptr)
     {
         condition = std::make_unique<Literal>(true);
     }
     body = std::make_unique<While>(std::move(condition), std::move(body));
 
-    if(initializer != nullptr)
+    if (initializer != nullptr)
     {
         StmtList statements;
         statements.push_back(std::move(initializer));
@@ -238,12 +240,12 @@ StmtUniquePtr Parser::for_statement()
 StmtUniquePtr Parser::block()
 {
     StmtList statements;
-    
-    while(!Check(Token::Type::kRightBrace) && !IsAtEnd())
+
+    while (!Check(Token::Type::kRightBrace) && !IsAtEnd())
     {
         statements.push_back(declaration());
     }
-    
+
     Consume(Token::Type::kRightBrace, "Expect '}' after block.");
 
     return std::make_unique<Block>(std::move(statements));
@@ -259,8 +261,8 @@ equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 term           → factor ( ( "-" | "+" ) factor )* ;
 factor         → unary ( ( "/" | "*" ) unary )* ;
-unary          → ( "!" | "-" ) unary
-               | primary ;
+unary          → ( "!" | "-" ) unary | call ;
+call           → primary ( "(" arguments? ")" )* ;
 primary        → NUMBER | STRING | "true" | "false" | "nil"
                | "(" expression ")"
                | IDENTIFIER ;
@@ -277,14 +279,14 @@ ExprUniquePtr Parser::expression()
 ExprUniquePtr Parser::assignment()
 {
     auto expr = logic_or();
-    
-    if(Match(Token::Type::kEqual))
+
+    if (Match(Token::Type::kEqual))
     {
         Token equals = Previous();
         auto value = assignment();
 
-        Variable* var = dynamic_cast<Variable*>(expr.get());
-        if(var != nullptr)
+        Variable *var = dynamic_cast<Variable *>(expr.get());
+        if (var != nullptr)
         {
             Token name = var->name();
             return std::make_unique<Assign>(name, std::move(value));
@@ -301,7 +303,7 @@ ExprUniquePtr Parser::logic_or()
 {
     auto expr = logic_and();
 
-    while(Match(Token::Type::kOr))
+    while (Match(Token::Type::kOr))
     {
         Token oper = Previous();
         auto right = logic_and();
@@ -316,7 +318,7 @@ ExprUniquePtr Parser::logic_and()
 {
     auto expr = equality();
 
-    while(Match(Token::Type::kAnd))
+    while (Match(Token::Type::kAnd))
     {
         Token oper = Previous();
         auto right = equality();
@@ -349,8 +351,7 @@ ExprUniquePtr Parser::comparison()
     auto expr = term();
 
     static const auto kComparisonOps = {
-        Token::Type::kGreater, Token::Type::kGreaterEqual, Token::Type::kLess, Token::Type::kLessEqual
-    };
+        Token::Type::kGreater, Token::Type::kGreaterEqual, Token::Type::kLess, Token::Type::kLessEqual};
 
     while (Match(kComparisonOps))
     {
@@ -396,8 +397,7 @@ ExprUniquePtr Parser::factor()
     return expr;
 }
 
-// unary          → ( "!" | "-" ) unary
-//                | primary ;
+// unary          → ( "!" | "-" ) unary | call ;
 ExprUniquePtr Parser::unary()
 {
     static const auto kUnaryOps = {Token::Type::kBang, Token::Type::kMinus};
@@ -408,7 +408,47 @@ ExprUniquePtr Parser::unary()
         return std::make_unique<Unary>(oper, std::move(right));
     }
 
-    return primary();
+    return call();
+}
+
+// call           → primary ( "(" arguments? ")" )* ;
+ExprUniquePtr Parser::call()
+{
+    ExprUniquePtr expr = primary();
+
+    while (true)
+    {
+        if (Match(Token::Type::kLeftParen))
+        {
+            expr = finish_call(std::move(expr));
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    return expr;
+}
+
+ExprUniquePtr Parser::finish_call(ExprUniquePtr callee)
+{
+    ExprList arguments;
+    if (!Check(Token::Type::kRightParen))
+    {
+        do
+        {
+            if (arguments.size() >= 255)
+            {
+                lox::Error(Peek(), "Can't have more than 255 arguments.");
+            }
+            arguments.push_back(expression());
+        } while (Match(Token::Type::kComma));
+    }
+
+    Token paren = Consume(Token::Type::kRightParen, "Expect ')' after arguments.");
+
+    return std::make_unique<Call>(std::move(callee), paren, std::move(arguments));
 }
 
 // primary        → NUMBER | STRING | "true" | "false" | "nil"
