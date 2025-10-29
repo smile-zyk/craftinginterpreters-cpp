@@ -6,6 +6,7 @@
 
 #include "ast.h"
 #include "callable.h"
+#include "control_exception.h"
 #include "environment.h"
 #include "error.h"
 #include "object.h"
@@ -19,24 +20,14 @@ Object clock_func(Interpreter*, const std::vector<Object>&)
     auto now = std::chrono::system_clock::now();
     auto duration = now.time_since_epoch();
     auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
-    int secs = static_cast<int>(millis / 1000.0);
-    return static_cast<double>(secs);
+    return static_cast<double>(millis) / 1000.0;
 }
 
-Object print_func(Interpreter*, const std::vector<Object>& arguments)
+Interpreter::Interpreter() : globals_(std::make_unique<Environment>())
 {
-    if(arguments.size() == 1)
-    {
-        std::cout << ObjectToString(arguments.at(0)) << std::endl;
-    }
+    globals_->Define("clock", std::make_shared<BuiltinCallable>("clock", clock_func, 0));
 
-    return nullptr;
-}
-
-Interpreter::Interpreter() : environment_(std::make_unique<Environment>())
-{
-    environment_->Define("clock", std::make_shared<BuiltinCallable>("clock", clock_func, 0));
-    environment_->Define("print", std::make_shared<BuiltinCallable>("print", print_func, 1));
+    environment_ = globals_.get();
 }
 
 void Interpreter::Interpret(const Program &program)
@@ -51,6 +42,10 @@ void Interpreter::Interpret(const Program &program)
     catch (const RuntimeError &e)
     {
         lox::Error(e);
+    }
+    catch (const control::Return& e)
+    {
+        lox::Error(e.keyword(), "'return' outside function");
     }
 }
 
@@ -219,7 +214,8 @@ Object Interpreter::Visit(Var *stmt)
 
 Object Interpreter::Visit(Block *stmt)
 {
-    ExecuteBlock(stmt->statements(), std::make_unique<Environment>(environment_.get()));
+    auto enclosing_environment = std::make_unique<Environment>(environment_);
+    ExecuteBlock(stmt->statements(), enclosing_environment.get());
     return nullptr;
 }
 
@@ -243,6 +239,24 @@ Object Interpreter::Visit(While *stmt)
         Execute(stmt->body());
     }
     return nullptr;
+}
+
+Object Interpreter::Visit(Function *stmt)
+{
+    CallablePtr function = std::make_shared<UserDefineCallable>(stmt);
+    environment_->Define(stmt->name().lexeme(), function);
+    return nullptr;
+}
+
+Object Interpreter::Visit(Return *stmt)
+{
+    Object value = nullptr;
+    if(stmt->value() != nullptr) 
+    {
+        value = Evaluate(stmt->value());
+    }
+
+    throw control::Return(stmt->keyword(), value);
 }
 
 bool Interpreter::IsTruthy(const Object &obj)
@@ -308,12 +322,12 @@ void Interpreter::Execute(stmt::Stmt *stmt)
     stmt->Accept(this);
 }
 
-void Interpreter::ExecuteBlock(const StmtList &statements, EnvironmentUniquePtr environment)
+void Interpreter::ExecuteBlock(const StmtList &statements, Environment* environment)
 {
-    EnvironmentUniquePtr previous = std::move(environment_);
+    Environment* previous = environment_;
     try
     {
-        environment_ = std::move(environment);
+        environment_ = environment;
 
         for (const StmtUniquePtr &statement : statements)
         {
@@ -330,9 +344,8 @@ void Interpreter::ExecuteBlock(const StmtList &statements, EnvironmentUniquePtr 
     }
     catch (...)
     {
-        environment_ = std::move(previous);
+        environment_ = previous;
         throw;
     }
-
-    environment_ = std::move(previous);
+    environment_ = previous;
 }

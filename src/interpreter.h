@@ -28,6 +28,13 @@ class Interpreter : public expr::ExprVisitor, stmt::StmtVisitor
     Object Visit(stmt::Block *stmt) override;
     Object Visit(stmt::If *stmt) override;
     Object Visit(stmt::While *stmt) override;
+    Object Visit(stmt::Function *stmt) override;
+    Object Visit(stmt::Return *strm) override;
+
+    void Execute(stmt::Stmt *stmt);
+    void ExecuteBlock(const StmtList &statements, Environment* environment);
+
+    Environment* globals() { return globals_.get(); }
 
   private:
     bool IsTruthy(const Object &obj);
@@ -35,10 +42,8 @@ class Interpreter : public expr::ExprVisitor, stmt::StmtVisitor
     void CheckNumberOperands(const Token &oper, std::initializer_list<Object> objs);
 
     Object Evaluate(expr::Expr *expr);
-    void Execute(stmt::Stmt *stmt);
-    void ExecuteBlock(const StmtList &statements, EnvironmentUniquePtr environment);
-
   private:
-    std::unique_ptr<Environment> environment_;
+    std::unique_ptr<Environment> globals_;
+    Environment* environment_;
 };
 } // namespace lox

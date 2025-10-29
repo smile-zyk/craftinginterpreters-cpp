@@ -2,7 +2,7 @@
 #include "ast.h"
 #include "error.h"
 #include "token.h"
-#include <algorithm>
+#include <memory>
 #include <utility>
 
 using namespace lox;
@@ -25,15 +25,24 @@ Program Parser::Parse()
 /*
 program        → declaration* EOF ;
 
-declaration    → varDecl
+declaration    → funDecl
+               | varDecl
                | statement ;
+
+funDecl        → "fun" function ;
+function       → IDENTIFIER "(" parameters? ")" block ;
+
+parameters     → IDENTIFIER ( "," IDENTIFIER )* ;
 
 statement      → exprStmt
                | forStmt
                | ifStmt
                | printStmt
+               | returnStmt
                | whileStmt
                | block ;
+
+returnStmt     → "return" expression? ";" ;
 
 forStmt        → "for" "(" ( varDecl | exprStmt | ";" )
                  expression? ";"
@@ -63,12 +72,17 @@ Program Parser::program()
     return statements;
 }
 
-// declaration    → varDecl
+// declaration    → funDecl
+//                | varDecl
 //                | statement ;
 StmtUniquePtr Parser::declaration()
 {
     try
     {
+        if(Match(Token::Type::kFun))
+        {
+            return func_declaration("function");
+        }
         if (Match(Token::Type::kVar))
         {
             return var_declaration();
@@ -98,10 +112,37 @@ StmtUniquePtr Parser::var_declaration()
     return std::make_unique<Var>(name, std::move(initializer));
 }
 
+//function       → IDENTIFIER "(" parameters? ")" block ;
+StmtUniquePtr Parser::func_declaration(const std::string& kind)
+{
+    Token name = Consume(Token::Type::kIdentifier, "Expect " + kind + " name.");
+    Consume(Token::Type::kLeftParen, "Expect '(' after " + kind + " name.");
+
+    std::vector<Token> parameters ;
+    if (!Check(Token::Type::kRightParen))
+    {
+        do
+        {
+            if (parameters .size() >= 255)
+            {
+                lox::Error(Peek(), "Can't have more than 255 arguments.");
+            }
+            parameters .push_back(Consume(Token::Type::kIdentifier, "Expect parameter name."));
+        } while (Match(Token::Type::kComma));
+    }
+
+    Token paren = Consume(Token::Type::kRightParen, "Expect ')' after arguments.");
+
+    Consume(Token::Type::kLeftBrace, "Expect '{' before " + kind + " body.");
+    auto body = block();
+    return std::make_unique<Function>(name, parameters, std::move(body));
+}
+
 // statement      → exprStmt
 //                | forStmt
 //                | ifStmt
 //                | printStmt
+//                | returnStmt
 //                | whileStmt
 //                | block ;
 StmtUniquePtr Parser::statement()
@@ -110,10 +151,14 @@ StmtUniquePtr Parser::statement()
     {
         return if_statement();
     }
-    // if (Match(Token::Type::kPrint))
-    // {
-    //     return print_statement();
-    // }
+    if (Match(Token::Type::kPrint))
+    {
+        return print_statement();
+    }
+    if (Match(Token::Type::kReturn))
+    {
+        return return_statement();
+    }
     if (Match(Token::Type::kWhile))
     {
         return while_statement();
@@ -127,6 +172,20 @@ StmtUniquePtr Parser::statement()
         return block();
     }
     return expression_statment();
+}
+
+// returnStmt     → "return" expression? ";" ;
+StmtUniquePtr Parser::return_statement()
+{
+    Token keyword = Previous();
+    ExprUniquePtr value = nullptr;
+    if(!Check(Token::Type::kSemicolon))
+    {
+        value = expression();
+    }
+
+    Consume(Token::Type::kSemicolon, "Expect ';' after return value.");
+    return std::make_unique<Return>(keyword, std::move(value));
 }
 
 // exprStmt       → expression ";" ;

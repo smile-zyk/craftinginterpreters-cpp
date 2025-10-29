@@ -32,6 +32,8 @@ src/error.h
 src/error.cc
 src/environment.h
 src/environment.cc
+src/callable.h
+src/callable.cc
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE magic_enum::magic_enum)

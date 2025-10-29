@@ -1,8 +1,8 @@
 #include "object.h"
-#include "callable.h"
 
-#include <cstddef>
 #include <sstream>
+#include <iomanip>
+#include "callable.h"
 
 namespace lox
 {
@@ -18,7 +18,7 @@ std::string ObjectToString(const Object &obj)
             else if constexpr (std::is_same_v<T, double>)
             {
                 std::ostringstream oss;
-                oss << std::fixed << arg;
+                oss << std::defaultfloat << std::setprecision(6) << arg;
                 return oss.str();
             }
             else if constexpr (std::is_same_v<T, bool>) 

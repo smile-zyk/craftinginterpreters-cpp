@@ -19,7 +19,9 @@ private:
     Program program();
     StmtUniquePtr declaration();
     StmtUniquePtr var_declaration();
+    StmtUniquePtr func_declaration(const std::string& kind);
     StmtUniquePtr statement();
+    StmtUniquePtr return_statement();
     StmtUniquePtr expression_statment();
     StmtUniquePtr if_statement();
     StmtUniquePtr print_statement();

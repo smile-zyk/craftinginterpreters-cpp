@@ -227,7 +227,10 @@ class Assign : public Expr
 class Call : public Expr
 {
   public:
-    Call(ExprUniquePtr callee, const Token &paren, ExprList arguments) : callee_(std::move(callee)), paren_(paren), arguments_(std::move(arguments)) {}
+    Call(ExprUniquePtr callee, const Token &paren, ExprList arguments)
+        : callee_(std::move(callee)), paren_(paren), arguments_(std::move(arguments))
+    {
+    }
 
     Object Accept(ExprVisitor *visitor) override
     {
@@ -264,6 +267,8 @@ class Var;
 class Block;
 class If;
 class While;
+class Function;
+class Return;
 
 class StmtVisitor
 {
@@ -274,6 +279,8 @@ class StmtVisitor
     virtual Object Visit(Block *stmt) = 0;
     virtual Object Visit(If *stmt) = 0;
     virtual Object Visit(While *stmt) = 0;
+    virtual Object Visit(Function *stmt) = 0;
+    virtual Object Visit(Return *stmt) = 0;
 };
 
 class Stmt
@@ -420,6 +427,59 @@ class While : public Stmt
   private:
     ExprUniquePtr condition_;
     StmtUniquePtr body_;
+};
+
+class Function : public Stmt
+{
+  public:
+    Function(const Token &name, const std::vector<Token> &params, StmtUniquePtr body)
+        : name_(name), params_(params), body_(std::move(body))
+    {
+    }
+
+    Object Accept(StmtVisitor *visitor) override
+    {
+        return visitor->Visit(this);
+    }
+
+    const Token &name()
+    {
+        return name_;
+    }
+
+    const std::vector<Token> &params()
+    {
+        return params_;
+    }
+
+    Stmt* body()
+    {
+        return body_.get();
+    }
+
+  private:
+    Token name_;
+    std::vector<Token> params_;
+    StmtUniquePtr body_;
+};
+
+class Return : public Stmt
+{
+  public:
+    Return(const Token& keyword, ExprUniquePtr value): keyword_(keyword), value_(std::move(value)){}
+
+    Object Accept(StmtVisitor *visitor) override
+    {
+        return visitor->Visit(this);
+    }
+    
+    const Token& keyword() { return keyword_; }
+    
+    expr::Expr* value() { return value_.get(); }
+
+  private:
+    Token keyword_;
+    ExprUniquePtr value_;
 };
 
 } // namespace stmt

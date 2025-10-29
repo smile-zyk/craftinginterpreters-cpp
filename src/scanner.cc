@@ -9,11 +9,13 @@
 using namespace lox;
 
 std::unordered_map<std::string, Token::Type> Scanner::keywords_ = {
-    {"and", Token::Type::kAnd},       {"class", Token::Type::kClass}, {"else", Token::Type::kElse},
-    {"false", Token::Type::kFalse},   {"for", Token::Type::kFor},     {"fun", Token::Type::kFun},
-    {"if", Token::Type::kIf},         {"nil", Token::Type::kNil},     {"or", Token::Type::kOr},
-    {"return", Token::Type::kReturn}, {"super", Token::Type::kSuper}, {"this", Token::Type::kThis},
-    {"true", Token::Type::kTrue},     {"var", Token::Type::kVar},     {"while", Token::Type::kWhile}};
+    {"and", Token::Type::kAnd},     {"class", Token::Type::kClass},   {"else", Token::Type::kElse},
+    {"false", Token::Type::kFalse}, {"for", Token::Type::kFor},       {"fun", Token::Type::kFun},
+    {"if", Token::Type::kIf},       {"nil", Token::Type::kNil},       {"or", Token::Type::kOr},
+    {"print", Token::Type::kPrint}, {"return", Token::Type::kReturn}, {"super", Token::Type::kSuper},
+    {"this", Token::Type::kThis},   {"true", Token::Type::kTrue},     {"var", Token::Type::kVar},
+    {"while", Token::Type::kWhile}};
+
 
 Scanner::Scanner(const std::string &source) : source_(source) {}
 
