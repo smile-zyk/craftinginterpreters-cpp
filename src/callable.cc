@@ -3,6 +3,7 @@
 #include "environment.h"
 #include "control_exception.h"
 
+#include <cstddef>
 #include <memory>
 
 namespace lox
@@ -18,7 +19,7 @@ Object BuiltinCallable::Call(Interpreter *interpreter, const std::vector<Object>
     return func_(interpreter, arguments);
 }
 
-int BuiltinCallable::arity()
+size_t BuiltinCallable::arity()
 {
     return arity_;
 }
@@ -57,7 +58,7 @@ Object UserDefineCallable::Call(Interpreter *interpreter, const std::vector<Obje
     return nullptr;
 }
 
-int UserDefineCallable::arity()
+size_t UserDefineCallable::arity()
 {
     return declaration_->params().size();
 }

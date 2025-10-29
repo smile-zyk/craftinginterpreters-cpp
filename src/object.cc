@@ -38,11 +38,4 @@ std::string ObjectToString(const Object &obj)
         obj
     );
 }
-
-Object ObjectNull()
-{
-    static Object obj;
-    return obj;
-}
-
 } // namespace lox

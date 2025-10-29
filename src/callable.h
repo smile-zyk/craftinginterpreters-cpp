@@ -14,7 +14,7 @@ class Callable
   public:
     virtual Object Call(Interpreter *interpreter, const std::vector<Object>& arguments) = 0;
     virtual std::string ToString() = 0;
-    virtual int arity() = 0;
+    virtual size_t arity() = 0;
 };
 
 using CallFunc = std::function<Object(Interpreter *, std::vector<Object>)>;
@@ -26,7 +26,7 @@ class BuiltinCallable : public Callable
 
     Object Call(Interpreter *interpreter, const std::vector<Object>& arguments) override;
 
-    int arity() override;
+    size_t arity() override;
 
     std::string ToString() override;
 
@@ -43,7 +43,7 @@ class UserDefineCallable : public Callable
 
     Object Call(Interpreter *interpreter, const std::vector<Object>& arguments) override;
 
-    int arity() override;
+    size_t arity() override;
 
     std::string ToString() override;
 
